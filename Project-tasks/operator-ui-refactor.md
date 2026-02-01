@@ -48,7 +48,7 @@
 | **Styling** | Tailwind CSS | Utility-first, great with shadcn |
 | **Components** | shadcn/ui | Copy-paste components, full control |
 | **Routing** | React Router 7 | Simple, mature |
-| **State** | React Context + hooks | Keep it simple initially |
+| **State** | Zustand | Lightweight, selectors prevent re-renders |
 | **Animations** | Framer Motion | Smooth, declarative |
 | **Icons** | Lucide React | Clean, consistent |
 
@@ -57,8 +57,32 @@
 | Option | Verdict |
 |--------|---------|
 | Next.js | Overkill for SPA dashboard |
-| Zustand/Jotai | Maybe later if state gets complex |
+| React Context | Causes unnecessary re-renders with WebSocket updates |
+| Jotai | Good, but Zustand has better DevTools |
+| Redux | Too much boilerplate for this scope |
 | Radix primitives only | shadcn wraps these nicely |
+
+### Why Zustand for State
+
+Real-time WebSocket events (messages, status changes, snapshots) flow to multiple components. Zustand's selector pattern ensures only affected components re-render:
+
+```tsx
+// Store definition
+const useGatewayStore = create((set) => ({
+  messages: [],
+  sessions: [],
+  connectionStatus: 'disconnected',
+  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+}))
+
+// Only re-renders when messages change (not on status changes)
+const messages = useGatewayStore((s) => s.messages)
+
+// Only re-renders when status changes (not on new messages)
+const status = useGatewayStore((s) => s.connectionStatus)
+```
+
+Benefits: ~1kb bundle, minimal boilerplate, DevTools support, no Context Provider nesting.
 
 ---
 
@@ -108,13 +132,34 @@ ui/src/ui/
 
 ## Phase 1: Foundation
 
+### Migration Strategy
+
+> **Key Decision:** Keep the old Lit UI fully functional while building the new React UI in parallel.
+
+| Route | UI | Purpose |
+|-------|-----|---------|
+| `/ui` | Old (Lit) | Production UI, unchanged, receives upstream updates |
+| `/ui-next` | New (React) | Development UI, incrementally built |
+
+**Why this matters:**
+- Can pull upstream fixes/features to `/ui` without conflicts
+- No pressure to finish quickly — old UI still works
+- Easy A/B comparison during development
+- Switch routes when ready: rename `/ui-next` → `/ui`
+
+**Implementation:**
+- New React UI lives in `ui-next/` folder (separate from `ui/`)
+- Gateway serves both: existing logic for `/ui`, new route for `/ui-next`
+- Single toggle in Gateway config to swap default when ready
+
 ### Tasks
 
-- [ ] **1.1** Create new `ui/` folder structure
+- [ ] **1.1** Create new `ui-next/` folder structure
   - [ ] Initialize Vite + React + TypeScript
   - [ ] Configure Tailwind CSS
   - [ ] Set up path aliases (`@/`)
-  - [ ] Configure build output to `dist/control-ui`
+  - [ ] Configure build output to `dist/control-ui-next`
+  - [ ] Add Gateway route for `/ui-next`
 
 - [ ] **1.2** Design System — Matrix Theme
   - [ ] Define color palette (matrix greens, black)
@@ -135,9 +180,10 @@ ui/src/ui/
     - [ ] ScrollArea
     - [ ] Tooltip
 
-- [ ] **1.4** Gateway Client
+- [ ] **1.4** Gateway Client + State
   - [ ] Port `gateway.ts` to TypeScript module
-  - [ ] Create `useGateway` React hook
+  - [ ] Set up Zustand store (`useGatewayStore`)
+  - [ ] Create `useGateway` hook (connects WebSocket → Zustand)
   - [ ] Handle reconnection logic
   - [ ] Type all events and responses
 
