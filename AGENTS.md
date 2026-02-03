@@ -19,29 +19,28 @@ This repo is a fork of `openclaw/openclaw`. We track upstream for fixes and feat
 
 **Branches:**
 - `main` → our working branch (custom work goes here)
-- `upstream` → clean mirror of `upstream/main` (never commit directly, sync only)
 
 **Current sync:** `v2026.2.1` (synced 2026-02-03)
 
 ### Sync Workflow
 
 ```bash
-# 1. Keep upstream branch synced (periodically)
+# 1. Fetch upstream (tags + branches)
 git fetch upstream --tags
-git checkout upstream
-git pull upstream main
-git push origin upstream
-git checkout main
 
 # 2. Review what's new
-git log main..upstream --oneline          # new commits
-git diff main..upstream --stat            # file changes
+git log main..upstream/main --oneline     # new commits
+git diff main..upstream/main --stat       # file changes
 
-# 3. Merge upstream into main (prefer releases)
+# 3. Merge upstream into main (prefer release tags)
 git merge v2026.X.XX                      # merge specific release tag
-# or: git merge upstream                  # merge latest
+# or: git merge upstream/main             # merge latest
 
-# 4. Cherry-pick urgent security fixes immediately
+# 4. Tag the sync point and push
+git tag sync-YYYY.M.D
+git push origin main --tags
+
+# 5. Cherry-pick urgent security fixes (if needed between releases)
 git cherry-pick <commit-sha>
 ```
 
