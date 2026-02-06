@@ -23,7 +23,7 @@
 | Aspect | Details |
 |--------|---------|
 | **Project** | Operator (OpenClaw fork) |
-| **Repo** | https://github.com/Interstellar-code/operator |
+| **Repo** | https://github.com/Interstellar-code/operator1 |
 | **Scope** | Frontend rewrite only (`ui/` folder) |
 | **Backend** | Unchanged — Gateway WebSocket API remains the same |
 | **Theme** | Matrix-inspired (green on black, terminal aesthetic) |

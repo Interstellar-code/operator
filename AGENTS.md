@@ -14,7 +14,7 @@ OpenClaw is a personal AI assistant platform with a local-first Gateway architec
 This repo is a fork of `openclaw/openclaw`. We track upstream for fixes and features.
 
 **Remotes:**
-- `origin` → our fork (`Interstellar-code/operator`)
+- `origin` → our fork (`Interstellar-code/operator1`)
 - `upstream` → original repo (`openclaw/openclaw`)
 
 **Branches:**
