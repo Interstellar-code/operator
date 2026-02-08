@@ -95,7 +95,7 @@
     "tui": "node scripts/run-node.mjs tui",
     "tui:dev": "OPENCLAW_PROFILE=dev CLAWDBOT_PROFILE=dev node scripts/run-node.mjs --dev tui",
     "ui-next:build": "pnpm --filter operator-control-ui-next build",
-    "ui-next:dev": "pnpm --filter operator-control-ui-next dev",
+    "ui-next:dev": "pnpm -C ui-next dev",
     "ui:build": "node scripts/ui.js build",
     "ui:dev": "node scripts/ui.js dev",
     "ui:install": "node scripts/ui.js install"
