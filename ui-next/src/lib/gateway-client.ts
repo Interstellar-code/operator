@@ -141,8 +141,28 @@ export class GatewayBrowserClient {
 
   stop() {
     this.closed = true;
-    this.ws?.close();
+    if (this.connectTimer !== null) {
+      window.clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
+    const ws = this.ws;
     this.ws = null;
+    if (ws) {
+      // Only close if the socket is OPEN; if still CONNECTING, let it
+      // finish and the close handler will fire naturally with `closed=true`
+      // preventing reconnect. This avoids the "closed before established" error.
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        // Force-close CONNECTING sockets — but suppress the console warning
+        // by removing listeners first and closing on next tick
+        try {
+          ws.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
     this.flushPending(new Error("gateway client stopped"));
   }
 

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useCallback } from "react";
 import { GatewayBrowserClient, type GatewayEventFrame } from "@/lib/gateway-client";
 import { loadSettings, saveSettings } from "@/lib/storage";
+import { useChatStore } from "@/store/chat-store";
 import { useGatewayStore } from "@/store/gateway-store";
 
 /** Extract ?token= (and ?session=, ?gatewayUrl=) from the URL, save to settings, strip from address bar. */
@@ -49,7 +50,21 @@ function applyUrlParams() {
   window.history.replaceState(null, "", cleanUrl);
 }
 
-export function useGateway() {
+// --- Context for sharing a single gateway connection ---
+
+type SendRpcFn = <T = unknown>(method: string, params?: unknown) => Promise<T>;
+
+type GatewayContextValue = {
+  sendRpc: SendRpcFn;
+};
+
+export const GatewayContext = createContext<GatewayContextValue | null>(null);
+
+/**
+ * Hook that establishes the gateway WebSocket connection.
+ * Must be called exactly once, inside GatewayProvider.
+ */
+export function useGatewayConnection(): GatewayContextValue {
   const clientRef = useRef<GatewayBrowserClient | null>(null);
   const store = useGatewayStore();
 
@@ -105,6 +120,16 @@ export function useGateway() {
   return { sendRpc };
 }
 
+/**
+ * Consume the shared gateway connection from any child component.
+ * The connection is established once by GatewayProvider in the Shell layout.
+ */
+export function useGateway(): GatewayContextValue {
+  const ctx = useContext(GatewayContext);
+  if (!ctx) throw new Error("useGateway must be used within GatewayProvider (Shell)");
+  return ctx;
+}
+
 function handleEvent(evt: GatewayEventFrame) {
   const store = useGatewayStore.getState();
 
@@ -113,5 +138,51 @@ function handleEvent(evt: GatewayEventFrame) {
     if (payload?.presence && Array.isArray(payload.presence)) {
       store.setPresenceEntries(payload.presence as typeof store.presenceEntries);
     }
+  }
+
+  if (evt.event === "chat") {
+    handleChatEvent(evt.payload);
+  }
+}
+
+type ChatEventPayload = {
+  runId?: string;
+  sessionKey?: string;
+  state?: "started" | "delta" | "final" | "error";
+  message?: {
+    role?: string;
+    content?: Array<{ type: string; text?: string }>;
+    timestamp?: number;
+  };
+  errorMessage?: string;
+};
+
+function handleChatEvent(payload: unknown) {
+  const chatStore = useChatStore.getState();
+  const evt = payload as ChatEventPayload;
+  if (!evt?.runId) return;
+
+  const { runId, state, sessionKey } = evt;
+
+  // Ignore events for other sessions
+  if (sessionKey && sessionKey !== chatStore.activeSessionKey) return;
+
+  switch (state) {
+    case "started":
+      chatStore.startStream(runId);
+      break;
+    case "delta": {
+      const text = evt.message?.content?.[0]?.text ?? "";
+      chatStore.updateStreamDelta(runId, text);
+      break;
+    }
+    case "final": {
+      const text = evt.message?.content?.[0]?.text;
+      chatStore.finalizeStream(runId, text);
+      break;
+    }
+    case "error":
+      chatStore.streamError(runId, evt.errorMessage);
+      break;
   }
 }

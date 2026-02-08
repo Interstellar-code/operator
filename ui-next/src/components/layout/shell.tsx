@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useGateway } from "@/hooks/use-gateway";
+import { GatewayContext, useGatewayConnection } from "@/hooks/use-gateway";
 
 const PAGE_TITLES: Record<string, string> = {
   "/chat": "Chat",
@@ -25,32 +25,42 @@ const PAGE_TITLES: Record<string, string> = {
   "/logs": "Logs",
 };
 
+// Full-height pages get no padding and overflow-hidden
+const FULL_HEIGHT_PAGES = new Set(["/chat", "/logs", "/config"]);
+
 export function Shell() {
   const location = useLocation();
   const pageTitle = PAGE_TITLES[location.pathname] ?? "Operator";
+  const isFullHeight = FULL_HEIGHT_PAGES.has(location.pathname);
 
-  // Connect to gateway on mount — store is updated globally via Zustand
-  useGateway();
+  // Single gateway connection shared with all child pages via context
+  const gateway = useGatewayConnection();
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>{pageTitle}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <GatewayContext.Provider value={gateway}>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset className="h-svh overflow-hidden">
+          <header className="flex h-12 md:h-14 shrink-0 items-center gap-2 border-b px-3 md:px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="text-sm md:text-base">{pageTitle}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </header>
+          <main
+            className={
+              isFullHeight ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto p-3 sm:p-4 md:p-6"
+            }
+          >
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </GatewayContext.Provider>
   );
 }

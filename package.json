@@ -37,6 +37,7 @@
     "check": "pnpm tsgo && pnpm lint && pnpm format",
     "check:loc": "node --import tsx scripts/check-ts-max-loc.ts --max 500",
     "dev": "node scripts/run-node.mjs",
+    "dev:all": "node scripts/run-node.mjs & pnpm ui-next:dev & wait",
     "docs:bin": "node scripts/build-docs-list.mjs",
     "docs:build": "cd docs && pnpm dlx --reporter append-only mint broken-links",
     "docs:dev": "cd docs && mint dev",

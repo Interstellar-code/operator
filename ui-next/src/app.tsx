@@ -1,112 +1,140 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Shell } from "@/components/layout/shell";
-import { OverviewPage } from "@/pages/overview";
-import { PlaceholderPage } from "@/pages/placeholder";
+import { PageLoader } from "@/components/ui/custom/page-loader";
+import { ToastProvider } from "@/components/ui/custom/toast";
+
+// Lazy-loaded pages — each becomes its own chunk
+const OverviewPage = lazy(() =>
+  import("@/pages/overview").then((m) => ({ default: m.OverviewPage })),
+);
+const ChatPage = lazy(() => import("@/pages/chat").then((m) => ({ default: m.ChatPage })));
+const SessionsPage = lazy(() =>
+  import("@/pages/sessions").then((m) => ({ default: m.SessionsPage })),
+);
+const ChannelsPage = lazy(() =>
+  import("@/pages/channels").then((m) => ({ default: m.ChannelsPage })),
+);
+const CronPage = lazy(() => import("@/pages/cron").then((m) => ({ default: m.CronPage })));
+const NodesPage = lazy(() => import("@/pages/nodes").then((m) => ({ default: m.NodesPage })));
+const SkillsPage = lazy(() => import("@/pages/skills").then((m) => ({ default: m.SkillsPage })));
+const ConfigPage = lazy(() => import("@/pages/config").then((m) => ({ default: m.ConfigPage })));
+const LogsPage = lazy(() => import("@/pages/logs").then((m) => ({ default: m.LogsPage })));
+const DebugPage = lazy(() => import("@/pages/debug").then((m) => ({ default: m.DebugPage })));
+const InstancesPage = lazy(() =>
+  import("@/pages/instances").then((m) => ({ default: m.InstancesPage })),
+);
+
+const AgentsPage = lazy(() => import("@/pages/agents").then((m) => ({ default: m.AgentsPage })));
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Shell />}>
-          <Route index element={<Navigate to="/overview" replace />} />
-          <Route path="/overview" element={<OverviewPage />} />
-          <Route
-            path="/chat"
-            element={
-              <PlaceholderPage
-                title="Chat"
-                description="Real-time chat interface with markdown rendering, tool call display, and session management."
-              />
-            }
-          />
-          <Route
-            path="/channels"
-            element={
-              <PlaceholderPage
-                title="Channels"
-                description="Manage messaging channels — WhatsApp, Telegram, Discord, Slack, Signal, and more."
-              />
-            }
-          />
-          <Route
-            path="/instances"
-            element={
-              <PlaceholderPage
-                title="Instances"
-                description="Presence beacons from connected clients and nodes."
-              />
-            }
-          />
-          <Route
-            path="/sessions"
-            element={
-              <PlaceholderPage
-                title="Sessions"
-                description="Inspect active sessions, view history, and adjust per-session defaults."
-              />
-            }
-          />
-          <Route
-            path="/cron"
-            element={
-              <PlaceholderPage
-                title="Cron Jobs"
-                description="Schedule wakeups and recurring agent runs."
-              />
-            }
-          />
-          <Route
-            path="/agents"
-            element={
-              <PlaceholderPage
-                title="Agents"
-                description="Manage agent workspaces, tools, and identities."
-              />
-            }
-          />
-          <Route
-            path="/skills"
-            element={
-              <PlaceholderPage
-                title="Skills"
-                description="Browse available skills and manage API key injection."
-              />
-            }
-          />
-          <Route
-            path="/nodes"
-            element={
-              <PlaceholderPage
-                title="Nodes"
-                description="Paired devices, capabilities, and command exposure."
-              />
-            }
-          />
-          <Route
-            path="/config"
-            element={
-              <PlaceholderPage title="Config" description="Edit gateway configuration safely." />
-            }
-          />
-          <Route
-            path="/debug"
-            element={
-              <PlaceholderPage
-                title="Debug"
-                description="Gateway snapshots, events, and manual RPC calls."
-              />
-            }
-          />
-          <Route
-            path="/logs"
-            element={
-              <PlaceholderPage title="Logs" description="Live tail of the gateway file logs." />
-            }
-          />
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/overview" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Shell />}>
+            <Route index element={<Navigate to="/overview" replace />} />
+            <Route
+              path="/overview"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <OverviewPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ChatPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/channels"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ChannelsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/instances"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <InstancesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sessions"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <SessionsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cron"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <CronPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/agents"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AgentsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/skills"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <SkillsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/nodes"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <NodesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/config"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ConfigPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/debug"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <DebugPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/logs"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <LogsPage />
+                </Suspense>
+              }
+            />
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/overview" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }

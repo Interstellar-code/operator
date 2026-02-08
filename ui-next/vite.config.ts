@@ -25,6 +25,22 @@ export default defineConfig({
     outDir: path.resolve(here, "../dist/control-ui-next"),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React + router — shared by all pages
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          // Zustand state management
+          "vendor-zustand": ["zustand"],
+          // Radix UI primitives — shared by all shadcn components
+          "vendor-radix": ["radix-ui", "class-variance-authority", "clsx", "tailwind-merge"],
+          // Markdown rendering — only loaded by chat page
+          "vendor-markdown": ["react-markdown", "remark-gfm"],
+          // Shiki syntax highlighting — heavy, only loaded by chat page
+          "vendor-shiki": ["shiki"],
+        },
+      },
+    },
   },
   server: {
     host: true,

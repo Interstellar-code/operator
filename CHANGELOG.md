@@ -2,6 +2,39 @@
 
 Docs: https://docs.openclaw.ai
 
+---
+
+## [Operator1] 2026.2.8
+
+> Fork-specific changes. Upstream sync base: `v2026.2.3`.
+
+### Control UI (ui-next) — Full Page Build-Out
+
+- **Overview**: redesigned dashboard with live stat cards, channel badges, connection status, and model selector.
+- **Chat**: full-featured chat page with session sidebar (collapsible, searchable), message composer with image paste/attach, model selector dropdown, tool call cards, thinking/reasoning display, image rendering, message grouping (Slack-style), auto-scroll with "New messages" pill, thumbs up/down rating, regenerate, copy, session reset with confirmation dialog, session delete, click-outside dismiss, and accessibility pass (aria-labels, roles, aria-live).
+- **Agents**: agent management page with create/edit/delete, tool and skill toggles, channel assignment, model and cron configuration.
+- **Skills**: skills browser with search, enable/disable toggles, and detail panels.
+- **Config**: schema-driven configuration form with sidebar navigation, section grouping, diff banner for unsaved changes, secret input masking, enum fields, and number fields.
+- **Sessions**: session list with search, status indicators, and detail view.
+- **Channels**: channel status page with connection probes and configuration links.
+- **Cron**: cron job management with schedule display, enable/disable, and run history.
+- **Nodes**: node topology view with exec approval management.
+- **Instances**: presence beacon page showing connected clients with device icons, host/IP, roles, scopes, platform chips, and age indicators.
+- **Logs**: log viewer with level filtering and auto-scroll.
+- **Debug**: debug console with raw RPC inspector.
+
+### Control UI — Shared Infrastructure
+
+- **Shell**: collapsible sidebar with icon-only mode, hover tooltips, and mobile responsive drawer.
+- **Toast system**: context-based toast notifications with auto-dismiss, success/error variants, and slide-in animation.
+- **Chat store**: Zustand store with stable message IDs (`crypto.randomUUID`), image extraction helpers, session management.
+- **Chat hook**: `useChat` hook with multimodal message sending, session delete, race condition guards (sequence counters), and history/session loading.
+- **Gateway client**: enhanced RPC client with reconnection, presence tracking, and typed event handlers.
+- **Config utilities**: schema parsing, form node rendering, section grouping, and diff computation.
+- **Component library**: badge, tabs, textarea, scroll-area, switch, tool-call-card, page-loader, markdown renderer, code blocks with syntax highlighting.
+
+---
+
 ## 2026.2.3
 
 ### Changes
