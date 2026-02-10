@@ -23,6 +23,15 @@ Docs: https://docs.openclaw.ai
 - **Logs**: log viewer with level filtering and auto-scroll.
 - **Debug**: debug console with raw RPC inspector.
 
+### Control UI (ui-next) — Page Enhancements
+
+- **Sessions**: full parity with old UI — inline editing (label, thinking, verbose, reasoning levels), filter controls (active minutes, limit, include global/unknown), all columns always visible (Kind, Tokens, Updated, Actions), delete with confirmation, binary thinking provider detection for z.ai models.
+- **Cron**: full parity with old UI — DataTable with Name/Schedule/Payload/Status/Next Run/Last Run/Chips/Actions columns, scheduler status bar (enabled state, job count, next wake), run history panel with status icons and session deep-links, "+ New Job" sheet with full form (schedule kind, payload kind, delivery, session/wake mode, timeout), enable/disable/run/remove actions.
+- **Channels**: rewritten with DataTable layout, fallback channel data when offline, channel health probe button, connection status badges.
+- **Debug**: event log panel with clear button, auto-scroll, method/direction badges, collapsible JSON payloads.
+- **Logs**: level filter chips, auto-scroll toggle, clear button, log entry formatting with timestamps and level badges.
+- **Overview**: redesigned to match old UI — Gateway Access card (WebSocket URL, token, password, session key, Connect/Refresh), Snapshot card (status, uptime, tick interval, last channels refresh, auth error callouts with doc links), operational stat cards (Instances, Sessions, Cron), Connection Details, Notes section. Removed 711-model listing and Connected Clients list.
+
 ### Control UI — Shared Infrastructure
 
 - **Shell**: collapsible sidebar with icon-only mode, hover tooltips, and mobile responsive drawer.

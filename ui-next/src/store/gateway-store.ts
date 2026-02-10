@@ -38,6 +38,7 @@ export type GatewayState = {
   setPresenceEntries: (entries: PresenceEntry[]) => void;
   setSessionKey: (key: string) => void;
   pushEvent: (event: string, payload?: unknown) => void;
+  clearEventLog: () => void;
   reset: () => void;
 };
 
@@ -82,6 +83,8 @@ export const useGatewayStore = create<GatewayState>((set) => ({
     set((state) => ({
       eventLog: [{ ts: Date.now(), event, payload }, ...state.eventLog].slice(0, 250),
     })),
+
+  clearEventLog: () => set({ eventLog: [] }),
 
   reset: () => set(initialState),
 }));
