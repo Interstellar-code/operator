@@ -69,6 +69,17 @@ const QWEN_PORTAL_DEFAULT_COST = {
   cacheWrite: 0,
 };
 
+const ANTIGRAVITY_BASE_URL = "https://daily-cloudcode-pa.sandbox.googleapis.com";
+const ANTIGRAVITY_OAUTH_PLACEHOLDER = "antigravity-oauth";
+const ANTIGRAVITY_DEFAULT_CONTEXT_WINDOW = 200000;
+const ANTIGRAVITY_DEFAULT_MAX_TOKENS = 64000;
+const ANTIGRAVITY_DEFAULT_COST = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
 const OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1";
 const OLLAMA_API_BASE_URL = "http://127.0.0.1:11434";
 const OLLAMA_DEFAULT_CONTEXT_WINDOW = 128000;
@@ -370,6 +381,44 @@ function buildQwenPortalProvider(): ProviderConfig {
   };
 }
 
+function buildAntigravityProvider(): ProviderConfig {
+  return {
+    baseUrl: ANTIGRAVITY_BASE_URL,
+    api: "google-gemini-cli",
+    auth: "oauth",
+    apiKey: ANTIGRAVITY_OAUTH_PLACEHOLDER,
+    models: [
+      {
+        id: "claude-opus-4-6-thinking",
+        name: "Claude Opus 4.6 Thinking",
+        reasoning: true,
+        input: ["text", "image"],
+        cost: ANTIGRAVITY_DEFAULT_COST,
+        contextWindow: ANTIGRAVITY_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: ANTIGRAVITY_DEFAULT_MAX_TOKENS,
+      },
+      {
+        id: "claude-opus-4-6",
+        name: "Claude Opus 4.6",
+        reasoning: false,
+        input: ["text", "image"],
+        cost: ANTIGRAVITY_DEFAULT_COST,
+        contextWindow: ANTIGRAVITY_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: ANTIGRAVITY_DEFAULT_MAX_TOKENS,
+      },
+      {
+        id: "claude-sonnet-4-5",
+        name: "Claude Sonnet 4.5",
+        reasoning: false,
+        input: ["text", "image"],
+        cost: ANTIGRAVITY_DEFAULT_COST,
+        contextWindow: ANTIGRAVITY_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: ANTIGRAVITY_DEFAULT_MAX_TOKENS,
+      },
+    ],
+  };
+}
+
 function buildSyntheticProvider(): ProviderConfig {
   return {
     baseUrl: SYNTHETIC_BASE_URL,
@@ -491,6 +540,11 @@ export async function resolveImplicitProviders(params: {
       ...buildQwenPortalProvider(),
       apiKey: QWEN_PORTAL_OAUTH_PLACEHOLDER,
     };
+  }
+
+  const antigravityProfiles = listProfilesForProvider(authStore, "google-antigravity");
+  if (antigravityProfiles.length > 0) {
+    providers["google-antigravity"] = buildAntigravityProvider();
   }
 
   const xiaomiKey =

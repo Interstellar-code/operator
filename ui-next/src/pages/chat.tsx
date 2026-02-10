@@ -87,16 +87,25 @@ function extractBase64(dataUrl: string): string {
 // ─── Helpers ───
 
 function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1)}M`;
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}k`;
+  }
   return String(tokens);
 }
 
 function formatContextWindow(tokens?: number): string {
-  if (!tokens) return "";
-  if (tokens >= 1_000_000)
+  if (!tokens) {
+    return "";
+  }
+  if (tokens >= 1_000_000) {
     return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(0)}k`;
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(0)}k`;
+  }
   return String(tokens);
 }
 
@@ -138,8 +147,12 @@ function ContextUsageBar({
 }
 
 function formatSessionTitle(session: SessionEntry): string {
-  if (session.label) return session.label;
-  if (session.derivedTitle) return session.derivedTitle;
+  if (session.label) {
+    return session.label;
+  }
+  if (session.derivedTitle) {
+    return session.derivedTitle;
+  }
   const key = session.key;
   if (key.includes(":")) {
     const parts = key.split(":");
@@ -157,12 +170,19 @@ function groupSessionsByTime(sessions: SessionEntry[]): Record<string, SessionEn
     const lastActive = s.lastActiveMs ?? 0;
     const age = now - lastActive;
     let group: string;
-    if (age < day) group = "Today";
-    else if (age < 2 * day) group = "Yesterday";
-    else if (age < 7 * day) group = "7 Days Ago";
-    else group = "Older";
+    if (age < day) {
+      group = "Today";
+    } else if (age < 2 * day) {
+      group = "Yesterday";
+    } else if (age < 7 * day) {
+      group = "7 Days Ago";
+    } else {
+      group = "Older";
+    }
 
-    if (!groups[group]) groups[group] = [];
+    if (!groups[group]) {
+      groups[group] = [];
+    }
     groups[group].push(s);
   }
 
@@ -189,7 +209,9 @@ function useCopyToClipboard() {
  * (they always follow assistant tool_use blocks).
  */
 function isFirstInGroup(messages: ChatMessage[], index: number): boolean {
-  if (index === 0) return true;
+  if (index === 0) {
+    return true;
+  }
   const cur = messages[index];
   const prev = messages[index - 1];
   const effectiveRole = (role: string) => (role === "tool" ? "assistant" : role);
@@ -276,7 +298,9 @@ function ThinkingSection({ thinking }: { thinking: string }) {
 /** Renders inline images extracted from a message's content blocks. */
 function MessageImages({ msg }: { msg: ChatMessage }) {
   const images = getMessageImages(msg);
-  if (images.length === 0) return null;
+  if (images.length === 0) {
+    return null;
+  }
   return (
     <div className="flex flex-wrap gap-2 mt-3">
       {images.map((img, i) => (
@@ -317,7 +341,9 @@ function groupModelsByProvider(models: ModelEntry[]): Record<string, ModelEntry[
   const groups: Record<string, ModelEntry[]> = {};
   for (const m of models) {
     const key = m.provider || "other";
-    if (!groups[key]) groups[key] = [];
+    if (!groups[key]) {
+      groups[key] = [];
+    }
     groups[key].push(m);
   }
   return groups;
@@ -422,6 +448,7 @@ function ChatMessageBubble({
   // If this assistant message contains tool_use blocks, render tool cards
   // alongside any text content
   const hasText = displayContent.trim().length > 0;
+  const hasError = Boolean(msg.errorMessage && msg.stopReason === "error");
 
   return (
     <div
@@ -452,6 +479,10 @@ function ChatMessageBubble({
             <div className="prose prose-neutral dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-sans">
               <Markdown>{displayContent}</Markdown>
             </div>
+          )}
+          {/* Error message from failed model response */}
+          {hasError && !hasText && (
+            <p className="text-sm text-destructive/80 font-mono">{msg.errorMessage}</p>
           )}
           <MessageImages msg={msg} />
         </div>
@@ -627,7 +658,9 @@ function SessionSidebarContent({
 
   // Close menu/confirmations when clicking outside
   useEffect(() => {
-    if (menuOpen === null && confirmDelete === null && confirmReset === null) return;
+    if (menuOpen === null && confirmDelete === null && confirmReset === null) {
+      return;
+    }
     const handleMouseDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(null);
@@ -640,7 +673,9 @@ function SessionSidebarContent({
   }, [menuOpen, confirmDelete, confirmReset]);
 
   const filteredSessions = useMemo(() => {
-    if (!searchQuery.trim()) return sessions;
+    if (!searchQuery.trim()) {
+      return sessions;
+    }
     const q = searchQuery.toLowerCase();
     return sessions.filter((s) => {
       const title = formatSessionTitle(s).toLowerCase();
@@ -746,7 +781,9 @@ function SessionSidebarContent({
           /* Expanded: full session list with groups */
           groupOrder.map((group) => {
             const items = grouped[group];
-            if (!items?.length) return null;
+            if (!items?.length) {
+              return null;
+            }
             return (
               <div key={group}>
                 <div className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -962,7 +999,9 @@ export function ChatPage() {
 
   const addAttachments = useCallback(async (files: File[]) => {
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
-    if (imageFiles.length === 0) return;
+    if (imageFiles.length === 0) {
+      return;
+    }
     const newAttachments: Attachment[] = [];
     for (const file of imageFiles) {
       const preview = await readFileAsDataUrl(file);
@@ -979,13 +1018,17 @@ export function ChatPage() {
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items) return;
+      if (!items) {
+        return;
+      }
       const imageFiles: File[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (item.type.startsWith("image/")) {
           const file = item.getAsFile();
-          if (file) imageFiles.push(file);
+          if (file) {
+            imageFiles.push(file);
+          }
         }
       }
       if (imageFiles.length > 0) {
@@ -1000,7 +1043,9 @@ export function ChatPage() {
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
-      if (!files) return;
+      if (!files) {
+        return;
+      }
       addAttachments(Array.from(files));
       // Reset the input so the same file can be re-selected
       e.target.value = "";
@@ -1019,7 +1064,9 @@ export function ChatPage() {
   // Find the index of the last assistant message
   const lastAssistantIndex = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "assistant") return i;
+      if (messages[i].role === "assistant") {
+        return i;
+      }
     }
     return -1;
   }, [messages]);
@@ -1048,7 +1095,9 @@ export function ChatPage() {
 
   // Regenerate: find last user message and resend it
   const handleRegenerate = useCallback(() => {
-    if (isStreaming) return;
+    if (isStreaming) {
+      return;
+    }
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === "user") {
         const lastUserText = getMessageText(messages[i]);
@@ -1071,7 +1120,9 @@ export function ChatPage() {
   }, [sendRpc, toast]);
 
   useEffect(() => {
-    if (isConnected) loadModels();
+    if (isConnected) {
+      loadModels();
+    }
   }, [isConnected, loadModels]);
 
   // Switch model for current session
@@ -1097,9 +1148,13 @@ export function ChatPage() {
 
   // Close model selector on Escape
   useEffect(() => {
-    if (!modelSelectorOpen) return;
+    if (!modelSelectorOpen) {
+      return;
+    }
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setModelSelectorOpen(false);
+      if (e.key === "Escape") {
+        setModelSelectorOpen(false);
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -1107,7 +1162,9 @@ export function ChatPage() {
 
   // Close model selector on click outside
   useEffect(() => {
-    if (!modelSelectorOpen) return;
+    if (!modelSelectorOpen) {
+      return;
+    }
     const handleClick = (e: MouseEvent) => {
       if (modelSelectorRef.current && !modelSelectorRef.current.contains(e.target as Node)) {
         setModelSelectorOpen(false);
@@ -1147,7 +1204,9 @@ export function ChatPage() {
   // Track whether user is near the bottom (within 300px)
   useEffect(() => {
     const container = chatContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
@@ -1178,7 +1237,9 @@ export function ChatPage() {
 
   const scrollToBottom = useCallback(() => {
     const container = chatContainerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
     setHasNewBelow(false);
   }, []);
@@ -1186,7 +1247,9 @@ export function ChatPage() {
   const handleSubmit = async () => {
     const hasText = inputValue.trim().length > 0;
     const hasAttachments = attachments.length > 0;
-    if ((!hasText && !hasAttachments) || isStreaming) return;
+    if ((!hasText && !hasAttachments) || isStreaming) {
+      return;
+    }
 
     try {
       if (hasAttachments) {

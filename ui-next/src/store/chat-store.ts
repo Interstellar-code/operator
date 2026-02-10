@@ -12,6 +12,9 @@ export type ChatMessage = {
   content: string | ChatMessageContent[];
   timestamp?: number;
   runId?: string;
+  // Server fields (from session transcript)
+  errorMessage?: string;
+  stopReason?: string;
   // UI-only fields
   id: string;
   isStreaming?: boolean;
@@ -77,7 +80,9 @@ export type ChatState = {
 
 /** Extract plain text from message content (string or content array). */
 export function getMessageText(msg: ChatMessage): string {
-  if (typeof msg.content === "string") return msg.content;
+  if (typeof msg.content === "string") {
+    return msg.content;
+  }
   const parts = msg.content
     .filter((c) => c.type === "text" && c.text)
     .map((c) => c.text!)
@@ -87,7 +92,9 @@ export function getMessageText(msg: ChatMessage): string {
 
 /** Extract image URLs from structured content blocks. */
 export function getMessageImages(msg: ChatMessage): Array<{ url: string; alt?: string }> {
-  if (typeof msg.content === "string") return [];
+  if (typeof msg.content === "string") {
+    return [];
+  }
   const images: Array<{ url: string; alt?: string }> = [];
   for (const block of msg.content) {
     if (block.type === "image") {
@@ -148,13 +155,17 @@ export const useChatStore = create<ChatState>((set) => ({
 
   updateStreamDelta: (runId, text) =>
     set((state) => {
-      if (state.streamRunId !== runId) return state;
+      if (state.streamRunId !== runId) {
+        return state;
+      }
       return { streamContent: text };
     }),
 
   finalizeStream: (runId, text) =>
     set((state) => {
-      if (state.streamRunId !== runId) return state;
+      if (state.streamRunId !== runId) {
+        return state;
+      }
       const finalText = text ?? state.streamContent;
       const newMessages = finalText.trim()
         ? [
@@ -177,7 +188,9 @@ export const useChatStore = create<ChatState>((set) => ({
 
   streamError: (runId, errorMessage) =>
     set((state) => {
-      if (state.streamRunId !== runId) return state;
+      if (state.streamRunId !== runId) {
+        return state;
+      }
       const errorMsg = ensureId({
         role: "system" as const,
         content: errorMessage ?? "An error occurred",

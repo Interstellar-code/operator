@@ -17,7 +17,9 @@ export function useChat(sendRpc: SendRpc) {
 
   // Load sessions on connect
   const loadSessions = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      return;
+    }
     const seq = ++sessionsSeqRef.current;
     const store = useChatStore.getState();
     store.setSessionsLoading(true);
@@ -28,10 +30,14 @@ export function useChat(sendRpc: SendRpc) {
         includeLastMessage: true,
       });
       // Discard if a newer request has been issued
-      if (seq !== sessionsSeqRef.current) return;
+      if (seq !== sessionsSeqRef.current) {
+        return;
+      }
       store.setSessions(result?.sessions ?? []);
     } catch (err) {
-      if (seq !== sessionsSeqRef.current) return;
+      if (seq !== sessionsSeqRef.current) {
+        return;
+      }
       console.error("[chat] failed to load sessions:", err);
     } finally {
       if (seq === sessionsSeqRef.current) {
@@ -42,10 +48,17 @@ export function useChat(sendRpc: SendRpc) {
 
   // Load message history for active session
   const loadHistory = useCallback(async () => {
-    if (!isConnected || !activeSessionKey) return;
+    if (!isConnected || !activeSessionKey) {
+      return;
+    }
     const seq = ++historySeqRef.current;
     const store = useChatStore.getState();
-    store.setMessagesLoading(true);
+    // Only show loading spinner when there are no messages yet (initial load).
+    // Reconnect-triggered reloads should not flash the spinner.
+    const isInitialLoad = store.messages.length === 0;
+    if (isInitialLoad) {
+      store.setMessagesLoading(true);
+    }
     try {
       const result = await sendRpc<{
         messages: ChatMessage[];
@@ -55,15 +68,19 @@ export function useChat(sendRpc: SendRpc) {
         limit: 200,
       });
       // Discard if a newer loadHistory call has superseded this one
-      if (seq !== historySeqRef.current) return;
+      if (seq !== historySeqRef.current) {
+        return;
+      }
       store.setMessages(result?.messages ?? []);
       if (result?.thinkingLevel) {
         store.setThinkingLevel(result.thinkingLevel);
       }
     } catch (err) {
-      if (seq !== historySeqRef.current) return;
+      if (seq !== historySeqRef.current) {
+        return;
+      }
       console.error("[chat] failed to load history:", err);
-      useChatStore.getState().setMessages([]);
+      // Don't wipe existing messages on error — keep what we have
     } finally {
       if (seq === historySeqRef.current) {
         useChatStore.getState().setMessagesLoading(false);
@@ -76,9 +93,15 @@ export function useChat(sendRpc: SendRpc) {
     async (content: string | Array<unknown>) => {
       const text = typeof content === "string" ? content : "";
       // For plain text, require non-empty; for structured content, require at least one block
-      if (typeof content === "string" && !content.trim()) return;
-      if (Array.isArray(content) && content.length === 0) return;
-      if (!isConnected) return;
+      if (typeof content === "string" && !content.trim()) {
+        return;
+      }
+      if (Array.isArray(content) && content.length === 0) {
+        return;
+      }
+      if (!isConnected) {
+        return;
+      }
 
       const store = useChatStore.getState();
 
@@ -111,7 +134,9 @@ export function useChat(sendRpc: SendRpc) {
   // Abort current run
   const abortRun = useCallback(async () => {
     const store = useChatStore.getState();
-    if (!store.streamRunId) return;
+    if (!store.streamRunId) {
+      return;
+    }
     try {
       await sendRpc("chat.abort", {
         sessionKey: activeSessionKey,

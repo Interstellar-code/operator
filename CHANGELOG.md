@@ -4,6 +4,28 @@ Docs: https://docs.openclaw.ai
 
 ---
 
+## [Operator1] 2026.2.10
+
+> Fork-specific changes. Upstream sync base: `v2026.2.9`.
+
+### Google Antigravity Provider Fix
+
+- **fix(models)**: resolve google-antigravity implicit provider from auth profiles so `models.json` is generated automatically after OAuth login.
+- **fix(models)**: use correct `google-gemini-cli` API type and sandbox base URL for antigravity streaming (fixes 404 "entity not found" error).
+- **fix(config)**: add `google-gemini-cli` to `ModelApi` type and zod schema for config validation.
+
+### BlueBubbles Extension Fix
+
+- **fix(extensions)**: add missing `zod` dependency to `extensions/bluebubbles/package.json` (fixes `Cannot find module 'zod'` on gateway start).
+
+### Control UI (ui-next) — Bug Fixes
+
+- **fix(chat)**: don't wipe messages on history reload error; only show loading spinner on initial load (prevents chat from disappearing on reconnect).
+- **fix(chat)**: display model error messages in assistant bubbles instead of showing empty bubbles (e.g. API 404 errors).
+- **fix(overview)**: change `sessions.list` limit from 0 to 1 (server requires `limit >= 1`).
+
+---
+
 ## [Operator1] 2026.2.9
 
 > Fork-specific changes. Upstream sync base: `v2026.2.9`.

@@ -165,7 +165,7 @@ export function OverviewPage() {
   const loadOverviewData = useCallback(async () => {
     try {
       const [sessResult, cronResult] = await Promise.all([
-        sendRpc<SessionsListResult>("sessions.list", { limit: 0 }).catch(() => null),
+        sendRpc<SessionsListResult>("sessions.list", { limit: 1 }).catch(() => null),
         sendRpc<CronStatusResult>("cron.status", {}).catch(() => null),
       ]);
       if (sessResult) {
