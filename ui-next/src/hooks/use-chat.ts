@@ -91,7 +91,6 @@ export function useChat(sendRpc: SendRpc) {
   // Send a message (plain text or structured content blocks for multimodal)
   const sendMessage = useCallback(
     async (content: string | Array<unknown>) => {
-      const text = typeof content === "string" ? content : "";
       // For plain text, require non-empty; for structured content, require at least one block
       if (typeof content === "string" && !content.trim()) {
         return;
@@ -112,10 +111,37 @@ export function useChat(sendRpc: SendRpc) {
         timestamp: Date.now(),
       });
 
+      // The server expects message: string + attachments: array.
+      // When content is an array of structured blocks (text + images), split them.
+      let message: string;
+      let attachments: Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(content)) {
+        const textParts: string[] = [];
+        const imageBlocks: Array<Record<string, unknown>> = [];
+        for (const block of content) {
+          const b = block as Record<string, unknown>;
+          if (b.type === "text" && typeof b.text === "string") {
+            textParts.push(b.text);
+          } else if (b.type === "image") {
+            const source = b.source as Record<string, unknown> | undefined;
+            imageBlocks.push({
+              type: "image",
+              mimeType: source?.media_type,
+              content: source?.data,
+            });
+          }
+        }
+        message = textParts.join("\n") || " ";
+        attachments = imageBlocks.length > 0 ? imageBlocks : undefined;
+      } else {
+        message = content;
+      }
+
       try {
         await sendRpc("chat.send", {
           sessionKey: activeSessionKey,
-          message: content,
+          message,
+          attachments,
           idempotencyKey: generateUUID(),
         });
       } catch (err) {
