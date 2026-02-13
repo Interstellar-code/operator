@@ -24,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAgents } from "@/hooks/use-agents";
+import { loadSettings, saveSettings } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { useGatewayStore } from "@/store/gateway-store";
 import {
@@ -41,20 +42,32 @@ import {
 // --- Helpers ---
 
 function formatFileSize(bytes?: number): string {
-  if (bytes == null) return "-";
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes == null) {
+    return "-";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 function formatTimeAgo(ms?: number): string {
-  if (!ms) return "-";
+  if (!ms) {
+    return "-";
+  }
   const diff = Date.now() - ms;
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
@@ -140,7 +153,15 @@ export function AgentsPage() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedRaw] = useState(
+    () => loadSettings().agentsSidebarCollapsed,
+  );
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedRaw(collapsed);
+    const s = loadSettings();
+    s.agentsSidebarCollapsed = collapsed;
+    saveSettings(s);
+  }, []);
 
   // Overview state
   const [workspace, setWorkspace] = useState("");
@@ -208,7 +229,9 @@ export function AgentsPage() {
 
   // Load overview data when agent changes
   const loadOverview = useCallback(async () => {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      return;
+    }
     try {
       const [configResult] = await Promise.all([getConfig()]);
       if (configResult) {
@@ -227,7 +250,9 @@ export function AgentsPage() {
 
   // Load files
   const loadFiles = useCallback(async () => {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      return;
+    }
     try {
       const result = await listAgentFiles(selectedAgentId);
       if (result) {
@@ -241,7 +266,9 @@ export function AgentsPage() {
 
   // Load tools config from agents.files.get for tools.json
   const loadToolsConfig = useCallback(async () => {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      return;
+    }
     setLoadingTools(true);
     try {
       const result = await getAgentFile(selectedAgentId, "TOOLS.md");
@@ -249,8 +276,12 @@ export function AgentsPage() {
         // Parse tool config - it's typically stored as JSON in a markdown wrapper or raw
         try {
           const parsed = JSON.parse(result.file.content);
-          if (parsed.profile) setToolProfile(parsed.profile);
-          if (parsed.overrides) setToolOverrides(parsed.overrides);
+          if (parsed.profile) {
+            setToolProfile(parsed.profile);
+          }
+          if (parsed.overrides) {
+            setToolOverrides(parsed.overrides);
+          }
         } catch {
           // Not JSON - tools config may be in markdown format
           setToolProfile("full");
@@ -266,7 +297,9 @@ export function AgentsPage() {
 
   // Load skills
   const loadSkills = useCallback(async () => {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      return;
+    }
     setLoadingSkills(true);
     try {
       const result = await getSkillsStatus(selectedAgentId);
@@ -307,7 +340,9 @@ export function AgentsPage() {
     setLoadingCron(true);
     try {
       const [statusResult, listResult] = await Promise.all([getCronStatus(), getCronList(true)]);
-      if (statusResult) setCronStatus(statusResult);
+      if (statusResult) {
+        setCronStatus(statusResult);
+      }
       if (listResult) {
         // Filter to jobs targeting this agent
         const agentJobs = listResult.jobs.filter(
@@ -332,17 +367,29 @@ export function AgentsPage() {
 
   // Load tab-specific data on tab change
   useEffect(() => {
-    if (!selectedAgentId || !isConnected) return;
-    if (activeTab === "tools") loadToolsConfig();
-    if (activeTab === "skills") loadSkills();
-    if (activeTab === "channels") loadChannels();
-    if (activeTab === "cron") loadCron();
+    if (!selectedAgentId || !isConnected) {
+      return;
+    }
+    if (activeTab === "tools") {
+      loadToolsConfig();
+    }
+    if (activeTab === "skills") {
+      loadSkills();
+    }
+    if (activeTab === "channels") {
+      loadChannels();
+    }
+    if (activeTab === "cron") {
+      loadCron();
+    }
   }, [activeTab, selectedAgentId, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- File Handlers ----
 
   const handleFileSelect = async (file: AgentFile) => {
-    if (file.missing) return;
+    if (file.missing) {
+      return;
+    }
     setSelectedFile(file);
     setLoadingFile(true);
     try {
@@ -364,7 +411,9 @@ export function AgentsPage() {
   };
 
   const handleSaveFile = async () => {
-    if (!selectedAgentId || !selectedFile) return;
+    if (!selectedAgentId || !selectedFile) {
+      return;
+    }
     setSavingFile(true);
     try {
       await setAgentFile(selectedAgentId, selectedFile.name, fileContent);
@@ -412,7 +461,9 @@ export function AgentsPage() {
   };
 
   const handleSaveTools = async () => {
-    if (!selectedAgentId) return;
+    if (!selectedAgentId) {
+      return;
+    }
     setSavingTools(true);
     try {
       const toolsConfig = JSON.stringify(
@@ -456,7 +507,9 @@ export function AgentsPage() {
   };
 
   const handleEnableAllSkills = () => {
-    if (!skillsReport) return;
+    if (!skillsReport) {
+      return;
+    }
     const newOverrides: Record<string, boolean> = {};
     for (const skill of skillsReport.skills) {
       newOverrides[skill.skillKey] = true;
@@ -465,7 +518,9 @@ export function AgentsPage() {
   };
 
   const handleDisableAllSkills = () => {
-    if (!skillsReport) return;
+    if (!skillsReport) {
+      return;
+    }
     const newOverrides: Record<string, boolean> = {};
     for (const skill of skillsReport.skills) {
       newOverrides[skill.skillKey] = false;
@@ -494,7 +549,9 @@ export function AgentsPage() {
 
   const skillsBySource = filteredSkills.reduce<Record<string, SkillStatusEntry[]>>((acc, skill) => {
     const key = skill.source || "unknown";
-    if (!acc[key]) acc[key] = [];
+    if (!acc[key]) {
+      acc[key] = [];
+    }
     acc[key].push(skill);
     return acc;
   }, {});
@@ -1466,9 +1523,15 @@ function ChannelCard({
 function CronJobCard({ job }: { job: CronJob }) {
   const scheduleLabel = (() => {
     const s = job.schedule;
-    if (s.kind === "cron") return s.expr;
-    if (s.kind === "every") return `every ${Math.round(s.everyMs / 1000)}s`;
-    if (s.kind === "at") return `at ${s.at}`;
+    if (s.kind === "cron") {
+      return s.expr;
+    }
+    if (s.kind === "every") {
+      return `every ${Math.round(s.everyMs / 1000)}s`;
+    }
+    if (s.kind === "at") {
+      return `at ${s.at}`;
+    }
     return "unknown";
   })();
 

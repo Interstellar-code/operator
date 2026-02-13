@@ -29,9 +29,20 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
+  EyeOff,
+  Wrench,
+  Reply,
+  Hash,
+  Pencil,
+  User,
 } from "lucide-react";
 import { useRef, useState, useMemo, useCallback, useEffect } from "react";
-import { ToolCallCard, extractToolCards } from "@/components/chat/tool-call-card";
+import {
+  ToolCallCard,
+  extractToolCards,
+  type ToolDisplayMode,
+} from "@/components/chat/tool-call-card";
 import { Button } from "@/components/ui/button";
 import { ChatContainer } from "@/components/ui/custom/prompt/chat-container";
 import {
@@ -45,9 +56,10 @@ import { PromptScrollButton } from "@/components/ui/custom/prompt/scroll-button"
 import { type ModelEntry } from "@/components/ui/custom/status/model-selector";
 import { useToast } from "@/components/ui/custom/toast";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useChat } from "@/hooks/use-chat";
 import { useGateway } from "@/hooks/use-gateway";
+import { loadSettings, saveSettings } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import {
   useChatStore,
@@ -146,13 +158,35 @@ function ContextUsageBar({
   );
 }
 
+/** Strip leading bracketed prefix (e.g., "[Fri 2026-02-13 20:20 GMT+5:30]") from strings. */
+function stripBracketedPrefix(s: string): string {
+  const stripped = s.replace(/^\[[^\]]*\]\s*/, "");
+  return stripped.trim() || s;
+}
+
 function formatSessionTitle(session: SessionEntry): string {
+  // User-set label takes priority
   if (session.label) {
     return session.label;
   }
+
+  // Server-derived title, with datetime prefix cleaned
   if (session.derivedTitle) {
-    return session.derivedTitle;
+    return stripBracketedPrefix(session.derivedTitle);
   }
+
+  // Try extracting meaningful content from the key (strip datetime prefix)
+  const keyContent = stripBracketedPrefix(session.key);
+  if (keyContent !== session.key && keyContent.length > 0) {
+    return keyContent;
+  }
+
+  // Use lastMessage as a descriptive fallback
+  if (session.lastMessage) {
+    return session.lastMessage.trim();
+  }
+
+  // Final fallback: clean up key for display
   const key = session.key;
   if (key.includes(":")) {
     const parts = key.split(":");
@@ -374,8 +408,13 @@ function ChatMessageBubble({
   rating,
   isLastAssistant,
   isGroupFirst = true,
+  toolDisplayMode = "collapsed",
+  mergedToolResults,
   onRate,
   onRegenerate,
+  onViewToolOutput,
+  onReply,
+  onCopyId,
 }: {
   msg: ChatMessage;
   index: number;
@@ -383,17 +422,39 @@ function ChatMessageBubble({
   isLastAssistant: boolean;
   /** True when this message starts a new consecutive group (show avatar). */
   isGroupFirst?: boolean;
+  toolDisplayMode?: ToolDisplayMode;
+  /** Result texts from following tool messages, merged into this assistant's tool call cards. */
+  mergedToolResults?: string[];
   onRate: (index: number, rating: "up" | "down") => void;
   onRegenerate: () => void;
+  onViewToolOutput?: (name: string, content: string) => void;
+  onReply?: (msg: ChatMessage) => void;
+  onCopyId?: (msg: ChatMessage) => void;
 }) {
   const text = getMessageText(msg);
   const isUser = msg.role === "user";
   const isSystem = msg.role === "system";
   const isTool = msg.role === "tool";
   const { copied, copy } = useCopyToClipboard();
+  const { copied: idCopied, copy: copyId } = useCopyToClipboard();
 
-  // Check for tool call/result content blocks in any message
-  const toolCards = extractToolCards(msg.content);
+  // Check for tool call/result content blocks and merge following tool results
+  const toolCards = (() => {
+    const cards = extractToolCards(msg.content);
+    if (!mergedToolResults || mergedToolResults.length === 0) {
+      return cards;
+    }
+    let resultIdx = 0;
+    return cards.map((card) => {
+      if (card.kind === "call" && resultIdx < mergedToolResults.length) {
+        const resultRaw = mergedToolResults[resultIdx++];
+        const resultText =
+          resultRaw && resultRaw !== "(no output)" && resultRaw.trim() ? resultRaw : "";
+        return { ...card, resultText };
+      }
+      return card;
+    });
+  })();
   const hasToolCards = toolCards.length > 0;
 
   if (isSystem) {
@@ -408,14 +469,50 @@ function ChatMessageBubble({
 
   if (isUser) {
     return (
-      <div className={cn("flex justify-end px-4 animate-slide-in", isGroupFirst ? "py-2" : "py-1")}>
-        <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-5 py-3.5 max-w-[80%] shadow-lg shadow-primary/10 ring-1 ring-white/10">
-          <p className="text-sm whitespace-pre-wrap leading-relaxed font-sans">{text}</p>
-          <MessageImages msg={msg} />
+      <div
+        className={cn(
+          "group flex justify-end px-4 animate-slide-in",
+          isGroupFirst ? "py-2" : "py-1",
+        )}
+      >
+        <div className="max-w-[80%]">
+          <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-5 py-3.5 shadow-lg shadow-primary/10 ring-1 ring-white/10">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed font-sans">{text}</p>
+            <MessageImages msg={msg} />
+          </div>
+          {/* User message actions */}
+          <div className="flex items-center justify-end gap-1 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+            {msg.seq > 0 && (
+              <span className="text-[10px] text-primary/40 font-mono mr-1">#{msg.seq}</span>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-6 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+              onClick={() => onReply?.(msg)}
+              title="Reply"
+              aria-label="Reply to message"
+            >
+              <Reply className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-6 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+              onClick={() => {
+                copyId(`[msg #${msg.seq}]`);
+                onCopyId?.(msg);
+              }}
+              title="Copy message ID"
+              aria-label="Copy message reference"
+            >
+              {idCopied ? <Check className="h-3 w-3" /> : <Hash className="h-3 w-3" />}
+            </Button>
+          </div>
         </div>
         {isGroupFirst ? (
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center ml-2 border border-primary/10 shrink-0">
-            <div className="w-4 h-4 rounded-full bg-primary/40" />
+            <User className="h-4 w-4 text-primary" />
           </div>
         ) : (
           /* Invisible spacer to keep right alignment consistent */
@@ -431,13 +528,26 @@ function ChatMessageBubble({
     if (hasToolCards) {
       return (
         <div className="px-4 py-1 animate-fade-in ml-11">
-          <ToolCallCard cards={toolCards} />
+          <ToolCallCard
+            cards={toolCards}
+            displayMode={toolDisplayMode}
+            onViewOutput={onViewToolOutput}
+          />
         </div>
       );
     }
+    // Filter out noisy "(no output)" markers — the preceding tool call card already shows "Completed"
+    const resultText = text && text !== "(no output)" && text.trim() ? text : undefined;
+    if (!resultText) {
+      return null;
+    }
     return (
       <div className="px-4 py-1 animate-fade-in ml-11">
-        <ToolCallCard cards={[{ kind: "result", name: "tool", text: text || undefined }]} />
+        <ToolCallCard
+          cards={[{ kind: "result", name: "tool", text: resultText }]}
+          displayMode={toolDisplayMode}
+          onViewOutput={onViewToolOutput}
+        />
       </div>
     );
   }
@@ -463,20 +573,24 @@ function ChatMessageBubble({
         <div className="w-8 shrink-0" />
       )}
       <div className="max-w-[90%] md:max-w-[85%]">
-        <div className="bg-card/40 text-foreground border border-border/60 rounded-2xl rounded-bl-sm px-6 py-5 shadow-sm backdrop-blur-md">
+        <div className="bg-card/40 text-foreground border border-border/60 rounded-2xl rounded-bl-sm px-6 py-5 shadow-sm backdrop-blur-md transition-colors group-hover:bg-card/60 group-hover:border-border/80">
           {/* Thinking section */}
           {thinking && <ThinkingSection thinking={thinking} />}
 
           {/* Tool cards within assistant message */}
           {hasToolCards && (
             <div className={cn(hasText && "mb-3")}>
-              <ToolCallCard cards={toolCards} />
+              <ToolCallCard
+                cards={toolCards}
+                displayMode={toolDisplayMode}
+                onViewOutput={onViewToolOutput}
+              />
             </div>
           )}
 
           {/* Main text content */}
           {hasText && (
-            <div className="prose prose-neutral dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-sans">
+            <div className="prose prose-sm prose-chat max-w-none break-words leading-relaxed font-sans">
               <Markdown>{displayContent}</Markdown>
             </div>
           )}
@@ -489,10 +603,36 @@ function ChatMessageBubble({
 
         {/* Actions Toolbar */}
         <div className="flex items-center gap-1 mt-2 ml-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+          {msg.seq > 0 && (
+            <span className="text-[10px] text-primary/40 font-mono mr-1">#{msg.seq}</span>
+          )}
           <Button
             variant="ghost"
             size="icon-xs"
-            className="h-7 w-7 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+            className="h-7 w-7 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+            onClick={() => onReply?.(msg)}
+            title="Reply"
+            aria-label="Reply to message"
+          >
+            <Reply className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="h-7 w-7 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+            onClick={() => {
+              copyId(`[msg #${msg.seq}]`);
+              onCopyId?.(msg);
+            }}
+            title="Copy message ID"
+            aria-label="Copy message reference"
+          >
+            {idCopied ? <Check className="h-3.5 w-3.5" /> : <Hash className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="h-7 w-7 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
             onClick={() => copy(displayContent || text)}
             title="Copy"
             aria-label="Copy message"
@@ -505,8 +645,8 @@ function ChatMessageBubble({
             className={cn(
               "h-7 w-7 rounded-lg transition-colors",
               rating === "up"
-                ? "text-primary bg-primary/10 hover:bg-primary/20"
-                : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/50",
+                ? "text-primary bg-primary/20 hover:bg-primary/30"
+                : "text-primary/60 hover:text-primary hover:bg-primary/10",
             )}
             onClick={() => onRate(index, "up")}
             title="Helpful"
@@ -521,7 +661,7 @@ function ChatMessageBubble({
               "h-7 w-7 rounded-lg transition-colors",
               rating === "down"
                 ? "text-destructive bg-destructive/10 hover:bg-destructive/20"
-                : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/50",
+                : "text-primary/60 hover:text-primary hover:bg-primary/10",
             )}
             onClick={() => onRate(index, "down")}
             title="Not Helpful"
@@ -533,7 +673,7 @@ function ChatMessageBubble({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="h-7 w-7 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+              className="h-7 w-7 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
               onClick={onRegenerate}
               title="Regenerate"
               aria-label="Regenerate response"
@@ -568,7 +708,7 @@ function StreamingBubble({
       <div className="max-w-[90%] md:max-w-[85%]">
         {content ? (
           <div className="bg-card/40 text-foreground border border-border/60 rounded-2xl rounded-bl-sm px-6 py-5 shadow-sm backdrop-blur-md">
-            <div className="prose prose-neutral dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-sans">
+            <div className="prose prose-sm prose-chat max-w-none break-words leading-relaxed font-sans">
               <Markdown>{content}</Markdown>
             </div>
           </div>
@@ -637,6 +777,7 @@ function SessionSidebarContent({
   onNewChat,
   onReset,
   onDelete,
+  onRename,
   collapsed = false,
   onCollapse,
 }: {
@@ -645,6 +786,7 @@ function SessionSidebarContent({
   onNewChat: () => void;
   onReset: (key: string) => void;
   onDelete: (key: string) => void;
+  onRename: (key: string, newLabel: string) => void;
   collapsed?: boolean;
   onCollapse?: (collapsed: boolean) => void;
 }) {
@@ -654,7 +796,10 @@ function SessionSidebarContent({
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState<string | null>(null);
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Close menu/confirmations when clicking outside
   useEffect(() => {
@@ -753,9 +898,9 @@ function SessionSidebarContent({
             {!collapsed && (searchQuery ? "No matching chats" : "No sessions yet")}
           </div>
         ) : collapsed ? (
-          /* Collapsed: icon-only session list with hover tooltips */
+          /* Collapsed: icon-only session list with numbered badges */
           <div className="space-y-0.5 py-1">
-            {filteredSessions.map((session) => (
+            {filteredSessions.map((session, idx) => (
               <div key={session.key} className="relative group" role="listitem">
                 <button
                   onClick={() => onSelect(session.key)}
@@ -767,7 +912,12 @@ function SessionSidebarContent({
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <MessageSquare className="h-4 w-4 shrink-0" />
+                  <span className="relative flex items-center justify-center h-6 w-6">
+                    <MessageSquare className="h-4 w-4 shrink-0" />
+                    <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-bold leading-none bg-background rounded-full h-3 w-3 flex items-center justify-center ring-1 ring-border/50">
+                      {idx + 1}
+                    </span>
+                  </span>
                 </button>
                 <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 hidden group-hover:block">
                   <div className="rounded-md border bg-popover px-3 py-1.5 text-sm shadow-md whitespace-nowrap max-w-[200px] truncate">
@@ -808,7 +958,34 @@ function SessionSidebarContent({
                             activeKey === session.key ? "text-primary" : "text-muted-foreground/70",
                           )}
                         />
-                        <span className="truncate text-sm">{formatSessionTitle(session)}</span>
+                        {renamingKey === session.key ? (
+                          <input
+                            ref={renameInputRef}
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && renameValue.trim()) {
+                                onRename(session.key, renameValue.trim());
+                                setRenamingKey(null);
+                              }
+                              if (e.key === "Escape") {
+                                setRenamingKey(null);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (renameValue.trim()) {
+                                onRename(session.key, renameValue.trim());
+                              }
+                              setRenamingKey(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary/50 outline-none text-foreground placeholder:text-muted-foreground/50"
+                            placeholder="Session name..."
+                          />
+                        ) : (
+                          <span className="truncate text-sm">{formatSessionTitle(session)}</span>
+                        )}
                       </button>
 
                       {/* Hover Menu */}
@@ -846,6 +1023,19 @@ function SessionSidebarContent({
 
                         {menuOpen === session.key && (
                           <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-xl border border-border bg-popover/95 backdrop-blur-md p-1 shadow-lg animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpen(null);
+                                setRenamingKey(session.key);
+                                setRenameValue(formatSessionTitle(session));
+                                setTimeout(() => renameInputRef.current?.select(), 0);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted font-medium transition-colors"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Rename
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -975,13 +1165,21 @@ function SessionSidebarContent({
 
 export function ChatPage() {
   const { sendRpc } = useGateway();
-  const { sendMessage, abortRun, switchSession, resetSession, deleteSession, loadHistory } =
-    useChat(sendRpc);
+  const {
+    sendMessage,
+    abortRun,
+    switchSession,
+    resetSession,
+    deleteSession,
+    loadSessions,
+    loadHistory,
+  } = useChat(sendRpc);
   const { toast } = useToast();
 
   const messages = useChatStore((s) => s.messages);
   const messagesLoading = useChatStore((s) => s.messagesLoading);
   const isStreaming = useChatStore((s) => s.isStreaming);
+  const isSendPending = useChatStore((s) => s.isSendPending);
   const streamContent = useChatStore((s) => s.streamContent);
   const activeSessionKey = useChatStore((s) => s.activeSessionKey);
   const sessions = useChatStore((s) => s.sessions);
@@ -990,8 +1188,68 @@ export function ChatPage() {
   const [inputValue, setInputValue] = useState("");
   const [models, setModels] = useState<ModelEntry[]>([]);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
+  const [chatSidebarCollapsed, setChatSidebarCollapsedRaw] = useState(
+    () => loadSettings().chatSidebarCollapsed,
+  );
+  const setChatSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setChatSidebarCollapsedRaw(collapsed);
+    const s = loadSettings();
+    s.chatSidebarCollapsed = collapsed;
+    saveSettings(s);
+  }, []);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
+
+  // Tool display mode: collapsed (default, aggregate + previews), expanded (all cards), hidden
+  const [toolDisplayMode, setToolDisplayMode] = useState<ToolDisplayMode>("collapsed");
+
+  // Tool output viewer panel
+  const [toolOutputPanel, setToolOutputPanel] = useState<{
+    open: boolean;
+    name: string;
+    content: string;
+  }>({ open: false, name: "", content: "" });
+
+  const handleViewToolOutput = useCallback((name: string, content: string) => {
+    setToolOutputPanel({ open: true, name, content });
+  }, []);
+
+  // Reply-to state
+  const [replyTo, setReplyTo] = useState<{ seq: number; role: string; preview: string } | null>(
+    null,
+  );
+
+  const handleReply = useCallback((msg: ChatMessage) => {
+    const msgText = getMessageText(msg);
+    const lines = msgText.split("\n").slice(0, 2);
+    let preview = lines.join("\n");
+    if (preview.length > 150) {
+      preview = preview.slice(0, 150) + "\u2026";
+    } else if (msgText.split("\n").length > 2) {
+      preview += "\u2026";
+    }
+
+    setReplyTo({ seq: msg.seq, role: msg.role, preview });
+
+    // Build quote block and prepend to input
+    const quoteBlock = `> [Re: #${msg.seq}] ${preview}\n\n`;
+    setInputValue((prev) => {
+      // If already has a quote block from a previous reply, replace it
+      const stripped = prev.replace(/^> \[Re: #\d+\][\s\S]*?\n\n/, "");
+      return quoteBlock + stripped;
+    });
+
+    // Focus the chat textarea
+    setTimeout(() => document.querySelector<HTMLTextAreaElement>("textarea")?.focus(), 0);
+  }, []);
+
+  const handleCopyId = useCallback((_msg: ChatMessage) => {
+    // Copy already handled in the bubble via useCopyToClipboard; this is a no-op hook for future use
+  }, []);
+
+  const clearReply = useCallback(() => {
+    setReplyTo(null);
+    setInputValue((prev) => prev.replace(/^> \[Re: #\d+\][\s\S]*?\n\n/, ""));
+  }, []);
 
   // Attachment state for image paste / file picker
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -1056,9 +1314,10 @@ export function ChatPage() {
   // Message ratings: map of message index -> "up" | "down"
   const [ratings, setRatings] = useState<Record<number, "up" | "down">>({});
 
-  // Reset ratings when session changes
+  // Reset ratings and reply state when session changes
   useEffect(() => {
     setRatings({});
+    setReplyTo(null);
   }, [activeSessionKey]);
 
   // Find the index of the last assistant message
@@ -1069,6 +1328,41 @@ export function ChatPage() {
       }
     }
     return -1;
+  }, [messages]);
+
+  // Pre-process: merge tool result messages into preceding assistant tool calls.
+  // consumedIndices = tool message indices absorbed into a preceding call card.
+  // mergedResults = map of assistant msg index → array of result texts from following tool msgs.
+  const { consumedIndices, mergedResults } = useMemo(() => {
+    const consumed = new Set<number>();
+    const merged = new Map<number, string[]>();
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role !== "assistant") {
+        continue;
+      }
+
+      const cards = extractToolCards(msg.content);
+      if (!cards.some((c) => c.kind === "call")) {
+        continue;
+      }
+
+      // Collect consecutive tool messages following this assistant message
+      const results: string[] = [];
+      let j = i + 1;
+      while (j < messages.length && messages[j].role === "tool") {
+        results.push(getMessageText(messages[j]));
+        consumed.add(j);
+        j++;
+      }
+
+      if (results.length > 0) {
+        merged.set(i, results);
+      }
+    }
+
+    return { consumedIndices: consumed, mergedResults: merged };
   }, [messages]);
 
   // Handle rating a message
@@ -1130,7 +1424,7 @@ export function ChatPage() {
     async (modelId: string) => {
       setModelSelectorOpen(false);
       try {
-        await sendRpc("sessions.update", { key: activeSessionKey, model: modelId });
+        await sendRpc("sessions.patch", { key: activeSessionKey, model: modelId });
         // Reload sessions to pick up the model change
         const result = await sendRpc<{ sessions: { key: string; model?: string }[] }>(
           "sessions.list",
@@ -1194,7 +1488,9 @@ export function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const scrollToRef = useRef<HTMLDivElement>(null);
 
-  const hasMessages = messages.length > 0 || isStreaming;
+  // Show typing dots when pending (before server acks) or actively streaming
+  const showTypingIndicator = isSendPending || isStreaming;
+  const hasMessages = messages.length > 0 || showTypingIndicator;
 
   // ── "New messages" indicator state ──
   const [hasNewBelow, setHasNewBelow] = useState(false);
@@ -1275,6 +1571,7 @@ export function ChatPage() {
       }
       setInputValue("");
       setAttachments([]);
+      setReplyTo(null);
     } catch {
       toast("Failed to send message", "error");
     }
@@ -1291,6 +1588,18 @@ export function ChatPage() {
       }
     },
     [deleteSession, toast],
+  );
+
+  const handleRenameSession = useCallback(
+    async (key: string, newLabel: string) => {
+      try {
+        await sendRpc("sessions.patch", { key, label: newLabel });
+        await loadSessions();
+      } catch {
+        toast("Failed to rename session", "error");
+      }
+    },
+    [sendRpc, loadSessions, toast],
   );
 
   const handleNewChat = () => {
@@ -1312,6 +1621,7 @@ export function ChatPage() {
           onNewChat={handleNewChat}
           onReset={resetSession}
           onDelete={handleDeleteSession}
+          onRename={handleRenameSession}
           collapsed={chatSidebarCollapsed}
           onCollapse={setChatSidebarCollapsed}
         />
@@ -1334,6 +1644,7 @@ export function ChatPage() {
                 onNewChat={handleNewChat}
                 onReset={resetSession}
                 onDelete={handleDeleteSession}
+                onRename={handleRenameSession}
               />
             </SheetContent>
           </Sheet>
@@ -1357,21 +1668,32 @@ export function ChatPage() {
               className="flex-1 w-full relative"
             >
               <div className="mx-auto w-full max-w-4xl py-6 md:py-10" role="log" aria-live="polite">
-                {messages.map((msg, i) => (
-                  <ChatMessageBubble
-                    key={msg.id}
-                    msg={msg}
-                    index={i}
-                    rating={ratings[i] ?? null}
-                    isLastAssistant={i === lastAssistantIndex}
-                    isGroupFirst={isFirstInGroup(messages, i)}
-                    onRate={handleRate}
-                    onRegenerate={handleRegenerate}
-                  />
-                ))}
-                {isStreaming && (
+                {messages.map((msg, i) => {
+                  // Skip tool messages that have been merged into preceding tool call cards
+                  if (consumedIndices.has(i)) {
+                    return null;
+                  }
+                  return (
+                    <ChatMessageBubble
+                      key={msg.id}
+                      msg={msg}
+                      index={i}
+                      rating={ratings[i] ?? null}
+                      isLastAssistant={i === lastAssistantIndex}
+                      isGroupFirst={isFirstInGroup(messages, i)}
+                      toolDisplayMode={toolDisplayMode}
+                      mergedToolResults={mergedResults.get(i)}
+                      onRate={handleRate}
+                      onRegenerate={handleRegenerate}
+                      onViewToolOutput={handleViewToolOutput}
+                      onReply={handleReply}
+                      onCopyId={handleCopyId}
+                    />
+                  );
+                })}
+                {showTypingIndicator && (
                   <StreamingBubble
-                    content={streamContent}
+                    content={isStreaming ? streamContent : ""}
                     isGroupFirst={
                       messages.length === 0 ||
                       (messages[messages.length - 1].role !== "assistant" &&
@@ -1434,8 +1756,26 @@ export function ChatPage() {
               onValueChange={setInputValue}
               onSubmit={handleSubmit}
               isLoading={isStreaming}
-              className="bg-secondary/40 border-border/60 shadow-lg backdrop-blur-md rounded-3xl overflow-hidden ring-1 ring-border/40 focus-within:ring-primary/20 transition-all p-0"
+              className="bg-secondary/40 border-border/60 shadow-lg backdrop-blur-md rounded-3xl ring-1 ring-border/40 focus-within:ring-primary/20 transition-all p-0"
             >
+              {/* Reply-to preview chip */}
+              {replyTo && (
+                <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+                  <div className="flex items-center gap-2 bg-muted/50 border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono text-muted-foreground max-w-full min-w-0">
+                    <Reply className="h-3 w-3 shrink-0 text-primary" />
+                    <span className="shrink-0 text-primary font-medium">#{replyTo.seq}</span>
+                    <span className="truncate">{replyTo.preview}</span>
+                    <button
+                      onClick={clearReply}
+                      className="shrink-0 ml-1 hover:text-foreground transition-colors"
+                      aria-label="Dismiss reply"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Attachment previews */}
               {attachments.length > 0 && (
                 <div className="flex items-center gap-2 px-4 pt-3 pb-1 overflow-x-auto">
@@ -1578,6 +1918,38 @@ export function ChatPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Tool display mode toggle */}
+                  <button
+                    onClick={() =>
+                      setToolDisplayMode((prev) =>
+                        prev === "collapsed"
+                          ? "expanded"
+                          : prev === "expanded"
+                            ? "hidden"
+                            : "collapsed",
+                      )
+                    }
+                    className={cn(
+                      "flex items-center gap-1 px-2 h-8 text-xs font-mono rounded-lg hover:bg-muted/50 transition-colors cursor-pointer",
+                      toolDisplayMode === "hidden"
+                        ? "text-muted-foreground/40"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    title={`Tool display: ${toolDisplayMode}`}
+                  >
+                    {toolDisplayMode === "hidden" ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Wrench className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {toolDisplayMode === "collapsed"
+                        ? "Tools"
+                        : toolDisplayMode === "expanded"
+                          ? "Expanded"
+                          : "Hidden"}
+                    </span>
+                  </button>
                   <Button
                     variant="ghost"
                     size="icon-xs"
@@ -1632,6 +2004,26 @@ export function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Tool output viewer panel */}
+      <Sheet
+        open={toolOutputPanel.open}
+        onOpenChange={(open) => setToolOutputPanel((prev) => ({ ...prev, open }))}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-lg md:max-w-xl p-0 flex flex-col">
+          <SheetHeader className="border-b border-border px-4 py-3 shrink-0">
+            <SheetTitle className="text-sm font-mono flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              {toolOutputPanel.name}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap break-all leading-relaxed">
+              {toolOutputPanel.content}
+            </pre>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

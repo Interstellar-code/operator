@@ -9,6 +9,7 @@ import { ConfigEditor } from "@/components/ui/custom/form";
 import { useGateway } from "@/hooks/use-gateway";
 import { setPathValue, removePathValue } from "@/lib/config-form-utils";
 import { normalizeSchemaNode } from "@/lib/config-schema";
+import { loadSettings, saveSettings } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { useGatewayStore } from "@/store/gateway-store";
 
@@ -52,7 +53,15 @@ export function ConfigPage() {
   const [formMode, setFormMode] = useState<"form" | "raw">("form");
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedRaw] = useState(
+    () => loadSettings().configSidebarCollapsed,
+  );
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedRaw(collapsed);
+    const s = loadSettings();
+    s.configSidebarCollapsed = collapsed;
+    saveSettings(s);
+  }, []);
 
   // Load config data
   const loadConfig = useCallback(async () => {
@@ -111,7 +120,9 @@ export function ConfigPage() {
   // Form patch handler
   const handlePatch = useCallback((path: Array<string | number>, value: unknown) => {
     setFormValue((prev) => {
-      if (!prev) return prev;
+      if (!prev) {
+        return prev;
+      }
       return setPathValue(prev, path, value);
     });
   }, []);
@@ -119,7 +130,9 @@ export function ConfigPage() {
   // Form remove handler (for additionalProperties)
   const handleRemove = useCallback((path: Array<string | number>) => {
     setFormValue((prev) => {
-      if (!prev) return prev;
+      if (!prev) {
+        return prev;
+      }
       return removePathValue(prev, path);
     });
   }, []);
@@ -168,7 +181,9 @@ export function ConfigPage() {
   // Mode switching
   const handleFormModeChange = useCallback(
     (mode: "form" | "raw") => {
-      if (mode === formMode) return;
+      if (mode === formMode) {
+        return;
+      }
 
       if (mode === "raw" && formValue) {
         // Form → Raw: serialize form state
@@ -201,7 +216,9 @@ export function ConfigPage() {
   let jsonValid = true;
   if (formMode === "raw") {
     try {
-      if (editValue) JSON.parse(editValue);
+      if (editValue) {
+        JSON.parse(editValue);
+      }
     } catch {
       jsonValid = false;
     }
@@ -210,9 +227,12 @@ export function ConfigPage() {
   // Available sections: union of config data keys + schema property keys
   const availableSections = (() => {
     const keys = new Set<string>();
-    if (formValue) Object.keys(formValue).forEach((k) => keys.add(k));
-    if (normalizedSchema?.properties)
+    if (formValue) {
+      Object.keys(formValue).forEach((k) => keys.add(k));
+    }
+    if (normalizedSchema?.properties) {
       Object.keys(normalizedSchema.properties).forEach((k) => keys.add(k));
+    }
     return Array.from(keys);
   })();
 

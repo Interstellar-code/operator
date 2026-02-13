@@ -2,6 +2,8 @@
 @import "../../node_modules/tw-animate-css/dist/tw-animate.css";
 @import "shadcn/tailwind.css";
 
+@plugin "@tailwindcss/typography";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -276,6 +278,26 @@
   --sidebar-accent-foreground: oklch(0.72 0.23 145);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.72 0.23 145 / 40%);
+}
+
+/* ── Chat prose typography — Matrix green theme ── */
+.prose-chat {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: oklch(0.95 0 0);
+  --tw-prose-lead: var(--foreground);
+  --tw-prose-links: var(--primary);
+  --tw-prose-bold: oklch(0.95 0 0);
+  --tw-prose-counters: oklch(0.72 0.23 145 / 60%);
+  --tw-prose-bullets: oklch(0.72 0.23 145 / 50%);
+  --tw-prose-hr: oklch(0.72 0.23 145 / 20%);
+  --tw-prose-quotes: oklch(0.85 0 0);
+  --tw-prose-quote-borders: oklch(0.72 0.23 145 / 40%);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: oklch(0.85 0.08 145);
+  --tw-prose-pre-code: oklch(0.9 0 0);
+  --tw-prose-pre-bg: oklch(0.12 0.005 285);
+  --tw-prose-th-borders: oklch(1 0 0 / 15%);
+  --tw-prose-td-borders: oklch(1 0 0 / 10%);
 }
 
 @layer base {

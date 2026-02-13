@@ -57,7 +57,9 @@ function applyUrlParams() {
     hashParams.delete("gatewayUrl");
   }
 
-  if (changed) saveSettings(settings);
+  if (changed) {
+    saveSettings(settings);
+  }
 
   // Strip consumed params from URL without reload
   const remaining = params.toString();
@@ -130,7 +132,9 @@ export function useGatewayConnection(): GatewayContextValue {
 
   const sendRpc = useCallback(<T = unknown>(method: string, params?: unknown): Promise<T> => {
     const client = clientRef.current;
-    if (!client) return Promise.reject(new Error("gateway not connected"));
+    if (!client) {
+      return Promise.reject(new Error("gateway not connected"));
+    }
     return client.request<T>(method, params);
   }, []);
 
@@ -143,7 +147,9 @@ export function useGatewayConnection(): GatewayContextValue {
  */
 export function useGateway(): GatewayContextValue {
   const ctx = useContext(GatewayContext);
-  if (!ctx) throw new Error("useGateway must be used within GatewayProvider (Shell)");
+  if (!ctx) {
+    throw new Error("useGateway must be used within GatewayProvider (Shell)");
+  }
   return ctx;
 }
 
@@ -177,12 +183,27 @@ type ChatEventPayload = {
 function handleChatEvent(payload: unknown) {
   const chatStore = useChatStore.getState();
   const evt = payload as ChatEventPayload;
-  if (!evt?.runId) return;
+  if (!evt?.runId) {
+    return;
+  }
 
   const { runId, state, sessionKey } = evt;
 
   // Ignore events for other sessions
-  if (sessionKey && sessionKey !== chatStore.activeSessionKey) return;
+  if (sessionKey && sessionKey !== chatStore.activeSessionKey) {
+    return;
+  }
+
+  // Any chat event means the server is handling our request — clear pending
+  if (chatStore.isSendPending) {
+    chatStore.setSendPending(false);
+  }
+
+  // Auto-initialize stream if we haven't seen a "started" event yet.
+  // The server may skip "started" and go straight to "delta" or "final".
+  if (state !== "started" && chatStore.streamRunId !== runId) {
+    chatStore.startStream(runId);
+  }
 
   switch (state) {
     case "started":

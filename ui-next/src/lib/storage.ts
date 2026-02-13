@@ -12,6 +12,9 @@ export type UiSettings = {
   splitRatio: number;
   navCollapsed: boolean;
   navGroupsCollapsed: Record<string, boolean>;
+  chatSidebarCollapsed: boolean;
+  configSidebarCollapsed: boolean;
+  agentsSidebarCollapsed: boolean;
 };
 
 const KEY = "openclaw.control.settings.v1";
@@ -39,11 +42,16 @@ export function loadSettings(): UiSettings {
     splitRatio: 0.6,
     navCollapsed: false,
     navGroupsCollapsed: {},
+    chatSidebarCollapsed: false,
+    configSidebarCollapsed: false,
+    agentsSidebarCollapsed: false,
   };
 
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaults;
+    if (!raw) {
+      return defaults;
+    }
     const parsed = JSON.parse(raw) as Partial<UiSettings>;
     return {
       gatewayUrl:
@@ -83,6 +91,18 @@ export function loadSettings(): UiSettings {
         typeof parsed.navGroupsCollapsed === "object" && parsed.navGroupsCollapsed !== null
           ? parsed.navGroupsCollapsed
           : defaults.navGroupsCollapsed,
+      chatSidebarCollapsed:
+        typeof parsed.chatSidebarCollapsed === "boolean"
+          ? parsed.chatSidebarCollapsed
+          : defaults.chatSidebarCollapsed,
+      configSidebarCollapsed:
+        typeof parsed.configSidebarCollapsed === "boolean"
+          ? parsed.configSidebarCollapsed
+          : defaults.configSidebarCollapsed,
+      agentsSidebarCollapsed:
+        typeof parsed.agentsSidebarCollapsed === "boolean"
+          ? parsed.agentsSidebarCollapsed
+          : defaults.agentsSidebarCollapsed,
     };
   } catch {
     return defaults;

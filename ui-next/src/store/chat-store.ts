@@ -17,12 +17,16 @@ export type ChatMessage = {
   stopReason?: string;
   // UI-only fields
   id: string;
+  /** 1-based sequential position in the session history (stable across reloads). */
+  seq: number;
   isStreaming?: boolean;
 };
 
-/** Ensure a message has a stable ID; assigns one if missing (e.g. from gateway). */
-function ensureId(msg: Omit<ChatMessage, "id"> & { id?: string }): ChatMessage {
-  return { ...msg, id: msg.id || generateUUID() };
+/** Ensure a message has a stable ID and seq; assigns defaults if missing. */
+function ensureId(
+  msg: Omit<ChatMessage, "id" | "seq"> & { id?: string; seq?: number },
+): ChatMessage {
+  return { ...msg, id: msg.id || generateUUID(), seq: msg.seq ?? 0 };
 }
 
 export type SessionEntry = {
@@ -57,6 +61,9 @@ export type ChatState = {
   streamRunId: string | null;
   streamContent: string;
 
+  // Send-pending state (typing indicator before server acks)
+  isSendPending: boolean;
+
   // Thinking level from history
   thinkingLevel: string;
 
@@ -67,6 +74,9 @@ export type ChatState = {
   setMessages: (messages: Array<Omit<ChatMessage, "id"> & { id?: string }>) => void;
   setMessagesLoading: (loading: boolean) => void;
   appendMessage: (message: Omit<ChatMessage, "id"> & { id?: string }) => void;
+
+  // Send-pending actions
+  setSendPending: (pending: boolean) => void;
 
   // Streaming actions
   startStream: (runId: string) => void;
@@ -127,6 +137,7 @@ const initialState = {
   isStreaming: false,
   streamRunId: null as string | null,
   streamContent: "",
+  isSendPending: false,
   thinkingLevel: "off",
 };
 
@@ -138,17 +149,24 @@ export const useChatStore = create<ChatState>((set) => ({
   setSessions: (sessions) => set({ sessions }),
   setSessionsLoading: (loading) => set({ sessionsLoading: loading }),
 
-  setMessages: (messages) => set({ messages: messages.map(ensureId) }),
+  setMessages: (messages) =>
+    set({
+      messages: messages.map((m, i) => ensureId({ ...m, seq: i + 1 })),
+      isSendPending: false,
+    }),
   setMessagesLoading: (loading) => set({ messagesLoading: loading }),
 
   appendMessage: (message) =>
     set((state) => ({
-      messages: [...state.messages, ensureId(message)],
+      messages: [...state.messages, ensureId({ ...message, seq: state.messages.length + 1 })],
     })),
+
+  setSendPending: (pending) => set({ isSendPending: pending }),
 
   startStream: (runId) =>
     set({
       isStreaming: true,
+      isSendPending: false,
       streamRunId: runId,
       streamContent: "",
     }),
@@ -175,12 +193,14 @@ export const useChatStore = create<ChatState>((set) => ({
               content: finalText,
               timestamp: Date.now(),
               runId,
+              seq: state.messages.length + 1,
             }),
           ]
         : state.messages;
       return {
         messages: newMessages,
         isStreaming: false,
+        isSendPending: false,
         streamRunId: null,
         streamContent: "",
       };
@@ -196,10 +216,12 @@ export const useChatStore = create<ChatState>((set) => ({
         content: errorMessage ?? "An error occurred",
         timestamp: Date.now(),
         runId,
+        seq: state.messages.length + 1,
       });
       return {
         messages: [...state.messages, errorMsg],
         isStreaming: false,
+        isSendPending: false,
         streamRunId: null,
         streamContent: "",
       };

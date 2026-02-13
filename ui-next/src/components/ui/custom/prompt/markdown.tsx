@@ -18,12 +18,15 @@ function parseMarkdownIntoBlocks(markdown: string): string[] {
 }
 
 function extractLanguage(className?: string): string {
-  if (!className) return "plaintext";
+  if (!className) {
+    return "plaintext";
+  }
   const match = className.match(/language-(\w+)/);
   return match ? match[1] : "plaintext";
 }
 
 const INITIAL_COMPONENTS: Partial<Components> = {
+  // ── Code ──
   code: function CodeComponent({ className, children, ...props }) {
     const isInline =
       !props.node?.position?.start.line ||
@@ -32,7 +35,10 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     if (isInline) {
       return (
         <span
-          className={cn("bg-secondary rounded-sm px-1 font-mono text-sm", className)}
+          className={cn(
+            "bg-primary/10 text-primary/90 border border-primary/15 rounded px-1.5 py-0.5 font-mono text-[0.8em]",
+            className,
+          )}
           {...props}
         >
           {children}
@@ -50,6 +56,115 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
   pre: function PreComponent({ children }) {
     return <>{children}</>;
+  },
+
+  // ── Headings — green left-border accent ──
+  h1: function H1({ children }) {
+    return (
+      <h1 className="border-l-2 border-primary/50 pl-3 text-lg font-bold mt-6 mb-3 first:mt-0">
+        {children}
+      </h1>
+    );
+  },
+  h2: function H2({ children }) {
+    return (
+      <h2 className="border-l-2 border-primary/40 pl-3 text-base font-bold mt-5 mb-2.5 first:mt-0">
+        {children}
+      </h2>
+    );
+  },
+  h3: function H3({ children }) {
+    return (
+      <h3 className="border-l-2 border-primary/30 pl-3 text-sm font-semibold mt-4 mb-2 first:mt-0">
+        {children}
+      </h3>
+    );
+  },
+  h4: function H4({ children }) {
+    return (
+      <h4 className="text-sm font-semibold mt-3 mb-1.5 text-foreground/90 first:mt-0">
+        {children}
+      </h4>
+    );
+  },
+
+  // ── Blockquote — green border + tinted bg ──
+  blockquote: function Blockquote({ children }) {
+    return (
+      <blockquote className="border-l-2 border-primary/40 bg-primary/5 rounded-r-lg pl-4 pr-3 py-2 my-3 text-foreground/80 italic [&>p]:my-1">
+        {children}
+      </blockquote>
+    );
+  },
+
+  // ── Lists — green bullets/counters, proper spacing ──
+  ul: function Ul({ children }) {
+    return (
+      <ul className="my-2.5 ml-1 space-y-1.5 list-none [&>li]:relative [&>li]:pl-5 [&>li]:before:absolute [&>li]:before:left-1 [&>li]:before:top-[0.6em] [&>li]:before:h-1.5 [&>li]:before:w-1.5 [&>li]:before:rounded-full [&>li]:before:bg-primary/50">
+        {children}
+      </ul>
+    );
+  },
+  ol: function Ol({ children }) {
+    return (
+      <ol className="my-2.5 ml-1 space-y-1.5 list-decimal pl-5 marker:text-primary/60 marker:font-mono marker:text-xs marker:font-medium">
+        {children}
+      </ol>
+    );
+  },
+  li: function Li({ children }) {
+    return <li>{children}</li>;
+  },
+
+  // ── Links — green with hover glow ──
+  a: function Anchor({ href, children }) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary/60 hover:text-primary transition-colors"
+      >
+        {children}
+      </a>
+    );
+  },
+
+  // ── Horizontal rule — green divider ──
+  hr: function Hr() {
+    return <hr className="my-5 border-t border-primary/20" />;
+  },
+
+  // ── Tables — styled with green header accent ──
+  table: function Table({ children }) {
+    return (
+      <div className="my-3 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">{children}</table>
+      </div>
+    );
+  },
+  thead: function Thead({ children }) {
+    return <thead className="bg-primary/8 border-b border-primary/20">{children}</thead>;
+  },
+  th: function Th({ children }) {
+    return (
+      <th className="px-3 py-2 text-left text-xs font-semibold text-primary/80 uppercase tracking-wide">
+        {children}
+      </th>
+    );
+  },
+  td: function Td({ children }) {
+    return <td className="px-3 py-2 border-t border-border/50 text-foreground/90">{children}</td>;
+  },
+
+  // ── Paragraphs — ensure proper spacing ──
+  p: function P({ children }) {
+    return <p className="my-2.5 leading-relaxed first:mt-0 last:mb-0">{children}</p>;
+  },
+
+  // ── Strong — slightly brighter for emphasis ──
+  strong: function Strong({ children }) {
+    return <strong className="font-semibold text-foreground">{children}</strong>;
   },
 };
 

@@ -111,6 +111,10 @@ export function useChat(sendRpc: SendRpc) {
         timestamp: Date.now(),
       });
 
+      // Show typing indicator immediately (dots appear before server acks).
+      // This is separate from streaming state so it doesn't block real events.
+      store.setSendPending(true);
+
       // The server expects message: string + attachments: array.
       // When content is an array of structured blocks (text + images), split them.
       let message: string;
@@ -146,6 +150,8 @@ export function useChat(sendRpc: SendRpc) {
         });
       } catch (err) {
         console.error("[chat] send failed:", err);
+        // Clear the pending typing indicator on failure
+        useChatStore.getState().setSendPending(false);
         store.appendMessage({
           role: "system",
           content: `Failed to send message: ${err instanceof Error ? err.message : "unknown error"}`,
