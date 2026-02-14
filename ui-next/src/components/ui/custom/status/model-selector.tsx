@@ -1,5 +1,5 @@
 import { Bot, ChevronDown, Check, Brain, Image, Sparkles } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

@@ -3,7 +3,6 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Send,
   Square,
   Search,
   Plus,
@@ -29,7 +28,6 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
-  Eye,
   EyeOff,
   Wrench,
   Reply,
@@ -124,43 +122,6 @@ function formatContextWindow(tokens?: number): string {
     return `${(tokens / 1000).toFixed(0)}k`;
   }
   return String(tokens);
-}
-
-/** Context window usage bar shown below the input */
-function ContextUsageBar({
-  used,
-  total,
-  className,
-}: {
-  used: number;
-  total: number;
-  className?: string;
-}) {
-  const pct = Math.min((used / total) * 100, 100);
-  const isHigh = pct > 80;
-  const isCritical = pct > 95;
-
-  return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <div className="flex-1 h-1.5 rounded-full bg-secondary/60 overflow-hidden">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all duration-500",
-            isCritical ? "bg-destructive" : isHigh ? "bg-chart-5" : "bg-primary/60",
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span
-        className={cn(
-          "text-[10px] font-mono shrink-0",
-          isCritical ? "text-destructive" : isHigh ? "text-chart-5" : "text-muted-foreground",
-        )}
-      >
-        {formatTokenCount(used)} / {formatContextWindow(total)}
-      </span>
-    </div>
-  );
 }
 
 /** Strip leading bracketed prefix (e.g., "[Fri 2026-02-13 20:20 GMT+5:30]") from strings. */
